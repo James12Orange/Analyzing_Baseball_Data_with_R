@@ -1,5 +1,5 @@
 ---
-title: "R Notebook"
+title: "Chapter 3 Analyzing Baseball Data with R, James Orange"
 output: html_notebook
 ---
 
