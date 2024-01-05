@@ -221,6 +221,77 @@ q
 
 ```
 
+Suppose we wanted to draw the function y=0.7-x on the graph:
+```{r}
+(p <- p + geom_abline(slope = -1,
+                      intercept = seq(0.7, 1, by=0.1),
+                      color="black",
+                      linetype = "dotted"))
+
+#In our final iteration, we want to add labels to the lines showing the constant values of OPS
+#First Let's create a dataframe which contains the coordiates
+ops_labels <- tibble(
+  OBP = rep(0.3, 4),
+  SLG = seq(0.4, 0.7, by = 0.1),
+  label = paste("OPS = ", OBP + SLG)
+)
+
+p + geom_text(data = ops_labels, hjust = "right", 
+              aes(label = label))
+
+```
+
+Ch 3.6.1 Parallel Strip Charts
+```{r}
+#create a new column that's HR rate (home run per at bat) as opposed to total numbers
+hof <- mutate(hof, hr_rate = HR/AB)
+
+ggplot(hof, aes(hr_rate, Era)) + 
+  geom_jitter(height=0.1)
+```
+```{r}
+r <- ggplot(hof, aes(Era, hr_rate)) + 
+  geom_boxplot(outlier.colour = "red") + 
+  coord_flip()
+
+outliers <- subset(hof, hr_rate > quantile(hr_rate, 0.75) + 1.5 * IQR(hr_rate) | hr_rate < quantile(hr_rate, 0.25) - 1.5 * IQR(hr_rate))
+
+r <- r + geom_text_repel(
+  data = outliers,
+  aes(x = hr_rate, y = Era, label = Player),  # Swap x and y aesthetics
+  color = "#000000", 
+  size = 4,
+  nudge_x = -0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+print(r)
+```
+3.7 Comparing Ruth Aaron, Bons, and A-Rod
+Now we'll start working with the Lahman data 
+```{r}
+#First we need to adjust birthyear, MLB defines age season by the age of te player on June 30 of the season
+#First let's create a function which will get us the correct age of each player
+library(Lahman)
+Master <- Lahman::People #book said to use master.csv file, it looks like Lahman changed this to player.csv
+
+get_birthyear <- function(Name) {
+  Names <- unlist(strsplit(Name, " "))  #first we'll need to split the Name string into first and last name
+  Master %>%
+    filter(nameFirst == Names[1],
+           nameLast == Names[2]) %>%
+    mutate(birthyear = ifelse(birthMonth >= 7,
+                              birthYear + 1, birthYear),
+  Player = paste(nameFirst, nameLast)) %>%
+  select(playerID, Player, birthyear)
+}
+
+PlayerInfo <- bind_rows(get_birthyear("Babe Ruth"),
+                        get_birthyear("Hank Aaron"),
+                        get_birthyear("Barry Bonds"),
+                        get_birthyear("Alex Rodriguez"))
+
+```
 
 
 
