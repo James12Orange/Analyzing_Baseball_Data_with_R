@@ -1,10 +1,12 @@
 ---
-title: "R Notebook"
+title: "Analyzing baseball Data with R"
 output:
   html_document:
     df_print: paged
 ---
-
+```{r setup, include=FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+```
 
 First let's install and upload some of the libraries we'll be using
 
