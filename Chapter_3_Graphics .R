@@ -1,0 +1,638 @@
+---
+title: "Analyzing baseball Data with R"
+output:
+  html_document:
+    df_print: paged
+---
+```{r setup, include=FALSE}
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+```
+
+First let's install and upload some of the libraries we'll be using
+
+```{r}
+library(ggplot2)
+library(devtools)
+install.packages("ggrepel")
+library(ggrepel)
+library(tidyverse)
+install.packages("Lahman")
+```
+Let's get into evaluating the Lahman data now
+
+```{r}
+github_pull("beanumber/baseball_R/tree/master/data")
+Batting <- Lahman::Batting
+halloffame <- Lahman::HallOfFame
+
+setwd("C:\\Users\\james\\R_Working_Directory\\Analyzing_Baseball_Data_With_R")
+
+Batting <- Batting %>%
+  group_by(playerID) %>%
+  mutate(From = min(yearID)) %>%
+  mutate(To = max(yearID))
+
+batting_summary <- Batting %>%
+  group_by(playerID) %>%
+  summarise(From = mean(From), To = mean(To))
+
+hof_lahman <- halloffame %>%
+  left_join(select(batting_summary, playerID, From, To), by = "playerID")
+
+hof_lahman <- hof_lahman %>%
+  filter(inducted == "Y" & category == "Player" & !is.na(From))
+
+
+hof <- read.csv("hofbatting.csv")
+```
+First, we define a player's mid-career as the average of the first and last seasons of baseball, we then use mutate() and cut() functions to create a new factor variable Era
+```{r}
+hof <- hof %>%
+  mutate(MidCareer = (From + To) / 2,
+         Era = cut(MidCareer,
+                   breaks = c(1800, 1900, 1919, 1941, 1960, 1976, 1993, 2050),
+                   labels = c("19th Century", "Dead Ball", "Lively Ball", "Integration", "Expansion", "Free Agency", "Long Ball")))
+
+hof_eras <- summarise(group_by(hof, Era), N=n())
+hof_eras
+
+ggplot(hof, aes(x=Era)) + 
+  geom_bar() +
+  xlab("Baseball Era") +
+  ylab("Frequency") +
+  ggtitle("Era of the Nonpitching Hall of Famers")
+ggsave("chapter3_BarGraph.png")
+
+ggplot(hof_eras, aes(Era, N)) +
+  geom_point() +
+  xlab("Baseball Era") +
+  ylab("Frequency") +
+  ggtitle("Era of the Nonpitching Hall of Famers") +
+  coord_flip()
+
+```
+
+Saving a pdf of the graphs
+```{r}
+
+pdf("Chapter3_Multiple_Graphs.pdf")
+ggplot(hof, aes(Era)) + geom_bar() 
+ggplot(hof_eras, aes(Era, N)) + geom_point() + coord_flip()
+dev.off()
+```
+
+3.4 Numeric Variable: One-Dimensional Scatterplot and Histogram
+```{r}
+ggplot(hof, aes(x=OPS, y=1)) + 
+  geom_jitter(height = 0.6) + ylim(-1,3) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_fixed(ratio = 0.03)
+```
+
+
+```{r}
+lmOPS_hof = lm(OPS ~ SLG, data= hof)
+summary(lmOPS_hof)
+
+#let's try a qplot
+library(ggrepel)
+p <- qplot(HR, OPS, data = hof, color = Era, size = AB)
+# Label speed outliers using geom_text_repel
+r <- p + geom_text_repel(
+  data = subset(hof, OPS > quantile(OPS, 0.75) + 1.5 * IQR(OPS) | OPS < quantile(OPS, 0.25) - 1.5 * IQR(OPS) | HR > quantile(HR, 0.75) + 1.5 * IQR(HR) | HR < quantile(HR, 0.25) - 1.5 * IQR(HR) ),
+  aes(x = HR, y = OPS, label = Player),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+print(r)
+
+```
+```{r}
+p <- qplot(MidCareer, OBP, data = hof, color = Era, size = HR)
+# Label speed outliers using geom_text_repel
+r <- p + geom_text_repel(
+  data = subset(hof, OBP > quantile(OBP, 0.75) + 1.5 * IQR(OBP) | OBP < quantile(OBP, 0.25) - 1.5 * IQR(OBP)),
+  aes(x = MidCareer, y = OBP, label = Player),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+print(r)
+```
+```{r}
+p <- qplot(MidCareer, SLG, data = hof, color = Era, size = HR)
+# Label speed outliers using geom_text_repel
+r <- p + geom_text_repel(
+  data = subset(hof, SLG > quantile(SLG, 0.75) + 1.5 * IQR(SLG) | SLG < quantile(SLG, 0.25) - 1.5 * IQR(SLG)),
+  aes(x = MidCareer, y = SLG, label = Player),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+print(r)
+```
+```{r}
+p <- qplot(MidCareer, OPS, data = hof, color = Era, size = HR)
+# Label speed outliers using geom_text_repel
+r <- p + geom_text_repel(
+  data = subset(hof, OPS > quantile(OPS, 0.75) + 1.5 * IQR(OPS) | OPS < quantile(OPS, 0.25) - 1.5 * IQR(OPS)),
+  aes(x = MidCareer, y = OPS, label = Player),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+# Add a horizontal line at the y-value corresponding to the OPS outlier threshold
+r <- r + geom_hline(yintercept = quantile(hof$OPS, 0.75) + 1.5 * IQR(hof$OPS), color = "red", linetype = "dotted")
+# Add a horizontal line at the y-value corresponding to the OPS outlier threshold
+r <- r + geom_hline(yintercept = quantile(hof$OPS, 0.25) - 1.5 * IQR(hof$OPS), color = "blue", linetype = "dotted")
+
+
+
+print(r)
+```
+```{r}
+p <- qplot(MidCareer, HR, data = hof, color = Era, size = OBP)
+# Label speed outliers using geom_text_repel
+r <- p + geom_text_repel(
+  data = subset(hof, HR > quantile(HR, 0.75) + 1.5 * IQR(HR) | HR< quantile(HR, 0.25) - 1.5 * IQR(HR)),
+  aes(x = MidCareer, y = HR, label = Player),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+# Add a horizontal line at the y-value corresponding to the OPS outlier threshold
+r <- r + geom_hline(yintercept = quantile(hof$HR, 0.75) + 1.5 * IQR(hof$HR), color = "red", linetype = "dotted")
+# Add a horizontal line at the y-value corresponding to the OPS outlier threshold
+r <- r + geom_hline(yintercept = quantile(hof$HR, 0.25) - 1.5 * IQR(hof$HR), color = "blue", linetype = "dotted")
+
+print(r)
+```
+
+Now let's make a histogram
+```{r}
+ggplot(hof, aes(x=OPS)) +
+  geom_histogram()
+```
+Let's  specify bin size 
+```{r}
+
+ggplot(hof, aes(x=OPS)) +
+  geom_histogram(breaks = seq(0.4, 1.2, by = 0.1),
+                 color = "blue", fill = "white")
+```
+
+Chapter 3.5 Two Numeric Values, Scatter Plot with Smoothing
+```{r}
+ggplot(hof, aes(MidCareer, OPS)) + 
+  geom_point() +
+  geom_smooth()
+
+```
+
+```{r}
+(p <- ggplot(hof, aes(OBP,SLG)) + geom_point())
+lm_fit <- lm(SLG ~OBP, data = hof)
+
+(p <- p + 
+    xlim(0.25, 0.50) + ylim(0.28, 0.75) +
+    xlab("On Base Percentage") + 
+    ylab("Slugging Percentage"))
+
+#Alternatively we could change the limits and the labels by appealing directly to the scale_x_continuous() and scale_y_continuous() functions
+
+p <- p +
+  scale_x_continuous("On Base Percentage", 
+                     limits = c(0.25, 0.50)) +
+  scale_y_continuous("Slugging  Percentage", 
+                     limits = c(0.28, 0.75))
+p
+
+q = p + geom_abline(intercept = coef(lm_fit)[1], slope = coef(lm_fit)[2], color="red")
+q
+
+```
+
+Suppose we wanted to draw the function y=0.7-x on the graph:
+```{r}
+(p <- p + geom_abline(slope = -1,
+                      intercept = seq(0.7, 1, by=0.1),
+                      color="black",
+                      linetype = "dotted"))
+
+#In our final iteration, we want to add labels to the lines showing the constant values of OPS
+#First Let's create a dataframe which contains the coordiates
+ops_labels <- tibble(
+  OBP = rep(0.3, 4),
+  SLG = seq(0.4, 0.7, by = 0.1),
+  label = paste("OPS = ", OBP + SLG)
+)
+
+p + geom_text(data = ops_labels, hjust = "right", 
+              aes(label = label))
+
+```
+
+Ch 3.6.1 Parallel Strip Charts
+```{r}
+#create a new column that's HR rate (home run per at bat) as opposed to total numbers
+hof <- mutate(hof, hr_rate = HR/AB)
+
+ggplot(hof, aes(hr_rate, Era)) + 
+  geom_jitter(height=0.1)
+```
+```{r}
+r <- ggplot(hof, aes(Era, hr_rate)) + 
+  geom_boxplot(outlier.colour = "red") + 
+  coord_flip()
+
+outliers <- subset(hof, hr_rate > quantile(hr_rate, 0.75) + 1.5 * IQR(hr_rate) | hr_rate < quantile(hr_rate, 0.25) - 1.5 * IQR(hr_rate))
+
+r <- r + geom_text_repel(
+  data = outliers,
+  aes(x = hr_rate, y = Era, label = Player),  # Swap x and y aesthetics
+  color = "#000000", 
+  size = 4,
+  nudge_x = -0.2, nudge_y = 0.4,
+  segment.color = "red",
+)
+
+print(r)
+```
+3.7 Comparing Ruth Aaron, Bons, and A-Rod
+Now we'll start working with the Lahman data 
+```{r}
+#First we need to adjust birthyear, MLB defines age season by the age of te player on June 30 of the season
+#First let's create a function which will get us the correct age of each player
+library(Lahman)
+Master <- Lahman::People #book said to use master.csv file, it looks like Lahman changed this to player.csv
+Batting <- Lahman::Batting
+
+get_birthyear <- function(Name) {
+  Names <- unlist(strsplit(Name, " "))  #first we'll need to split the Name string into first and last name
+  Master %>%
+    filter(nameFirst == Names[1],
+           nameLast == Names[2]) %>%
+    mutate(birthyear = ifelse(birthMonth >= 7,
+                              birthYear + 1, birthYear),
+  Player = paste(nameFirst, nameLast)) %>%
+  select(playerID, Player, birthyear)
+}
+
+PlayerInfo <- bind_rows(get_birthyear("Babe Ruth"),
+                        get_birthyear("Hank Aaron"),
+                        get_birthyear("Barry Bonds"),
+                        get_birthyear("Alex Rodriguez"))
+
+Batting %>%
+  inner_join(PlayerInfo, by="playerID") %>%
+  mutate(Age = yearID - birthyear) %>%
+  select(Player, Age, HR) %>%
+  group_by(Player)%>%
+  mutate(CHR = cumsum(HR)) -> HRdata
+
+
+#After the data cleaning let's construct a graph
+lineplot <- ggplot(HRdata, aes(x=Age, y = CHR, linetype = Player)) +
+  geom_line(aes(colour = Player))
+
+print(lineplot)
+
+```
+Now it's time to plot the Sammy Sosa vs Mark mcGuire Home Run Race
+
+```{r}
+fields <- read.csv("baseball_R/data/fields.csv")
+data1998 <- read.csv("baseball_R/data/all1998.csv",
+                     col.names = fields$Header)
+
+#First thing we need to do after pulling in the data is to retrieve Mac and Sammy's ids
+sosa_id <- Master %>%
+  filter(nameFirst == "Sammy", nameLast == "Sosa") %>%
+  pull(retroID)
+
+mac_id <- Master %>%
+  filter(nameFirst == "Mark", nameLast == "McGwire") %>%
+  pull(retroID)
+
+
+#now that we have their id's let's go to the play by play data
+hr_race <- data1998 %>%
+  filter(BAT_ID %in% c(sosa_id, mac_id))
+
+```
+3.8.2 Extracting the variables
+
+```{r}
+library(lubridate)
+cum_hr <- function(d) {
+  d%>%
+    mutate(Date = ymd(str_sub(GAME_ID, 4, 11))) %>%
+    arrange(Date) %>%
+    mutate(HR = ifelse(EVENT_CD ==23,1,0),
+                       cumHR = cumsum(HR)) %>%
+    select(Date, cumHR)
+}
+
+#Next, we will use map_df() function to itrate our new function cum_hr() twice, once for SOSAand once for McGwire's batting data, and obtaining a new data frame...hr_ytd
+hr_ytd <- hr_race %>%
+  split(pull(., BAT_ID)) %>%
+  map_df(cum_hr, .id = "BAT_ID") %>%
+  inner_join(Master, by = c("BAT_ID" = "retroID"))
+
+#contructing the graph
+ggplot(hr_ytd, aes(Date, cumHR, linetype=nameLast)) +
+  geom_line() +
+  geom_hline(yintercept=62, color="blue") +
+  annotate("text", ymd("1998-04-15"), 65, label = "62", color="blue") +
+  ylab("Home Runs in the 1998 Season")
+```
+Next let's try the chapter 3 exercises
+1. Hall of Fame Pitchers
+```{r}
+hofpitching <- read.csv("baseball_R/data/hofpitching.csv")
+
+#BF variable is the number of batters faced in a pitcher's career.  Let's group the pitchers using the intervals designated in the book
+
+hofpitching <- hofpitching %>% 
+  mutate(BF.group = cut(BF,
+                        c(0, 10000, 15000, 20000, 30000),
+                        labels = c("Less than 10000", "(10000, 14999)", ("15000, 19999"), "20000 or More")))
+```
+
+1.a Construct a Frequency Table
+
+```{r}
+
+#Let's do pitching era like we did with batting:
+hofpitching <- hofpitching %>%
+  mutate(MidCareer = (From + To) / 2,
+         Era = cut(MidCareer,
+                   breaks = c(1800, 1900, 1919, 1941, 1960, 1976, 1993, 2050),
+                   labels = c("19th Century", "Dead Ball", "Lively Ball", "Integration", "Expansion", "Free Agency", "Long Ball")))
+
+hofpitching_bfgroupfreqtable <- hofpitching %>%
+  group_by(BF.group) %>%
+  summarise(
+    Frequency = n(),
+    WAR = sum(WAR),
+    SO = sum(SO),
+    BB = sum(BB),
+    HBP = sum(HBP),
+    CG = sum(CG)
+  )
+
+hofpitching_yearfreqtable <- hofpitching %>%
+  group_by(Era) %>%
+  summarise(
+    Frequency = n(),
+    WAR = sum(WAR),
+    SO = sum(SO),
+    BB = sum(BB),
+    HBP = sum(HBP),
+    CG = sum(CG)
+  ) 
+
+```
+
+Construct the histogram
+```{r}
+ggplot(hofpitching, aes(x=BF)) +
+  geom_histogram()
+
+ggplot(hofpitching, aes(x=HBP)) +
+  geom_histogram()
+
+
+ggplot(hofpitching, aes(x=SO)) +
+  geom_histogram()
+
+ggplot(hofpitching, aes(x=BB)) +
+  geom_histogram()
+
+
+ggplot(hofpitching, aes(x=WAR)) +
+  geom_histogram()
+
+ggplot(hofpitching, aes(x=CG)) +
+  geom_histogram()
+
+ggplot(hofpitching, aes(x = BF, fill = BF > 20000)) +
+  geom_histogram(binwidth = 1000) +
+  scale_fill_manual(values = c("FALSE" = "gray", "TRUE" = "red")) +
+  ylab("Count of Pitchers") +
+  xlab("Batters Faced (BF)") +
+  ggtitle("Histogram of Batters Faced (BF)") +
+  theme_minimal()
+
+
+ggplot(hofpitching, aes(x = BF)) +
+  geom_density(aes(fill = BF > 20000, color = BF > 20000), alpha = 0.5) +
+  scale_fill_manual(values = c("FALSE" = "gray", "TRUE" = "blue")) +
+  scale_color_manual(values = c("FALSE" = "gray", "TRUE" = "blue")) +
+  ylab("Density") +
+  xlab("Batters Faced (BF)") +
+  ggtitle("Density Curve with Two Colors for Batters Faced (BF)") +
+  theme_minimal()
+```
+Now let's do a bar graph by BF.group
+
+```{r}
+ggplot(hofpitching, aes(BF.group)) +
+  geom_bar() +
+  geom_text(stat = "count", aes(label = after_stat(count), vjust=-0.5), color="blue") +
+  ylab("Count of Pitchers") + 
+  xlab("Batters Faced Group") + 
+  ggtitle("Number of Pitchers in Each Batters Faced Group") 
+ggsave("HOFPitchingBarChart.png")
+```
+
+```{r}
+ggplot(hofpitching_bfgroupfreqtable, aes(BF.group, Frequency)) +
+  geom_point() +
+  ylab("Count of Pitchers") + 
+  xlab("Batters Faced Group") + 
+  ggtitle("Number of Pitchers in Each Batters Faced Group") 
+ggsave("HOFPitchingdotplot.png")
+```
+```{r}
+ggplot(hofpitching, aes(Era)) +
+  geom_bar() +
+  geom_text(stat = "count", aes(label = after_stat(count), vjust=-0.5), color="blue") +
+  ylab("Count of Pitchers") + 
+  xlab("Era") + 
+  ggtitle("Number of Pitchers in Each Batters Faced Group")
+  ggsave("HOFPitchingbyeya.png")
+```
+
+```{r}
+ggplot(hofpitching, aes(WAR)) +
+  geom_histogram()
+
+linear_model <- lm(WAR ~ G, data=hofpitching)
+
+ggplot(hofpitching, aes(G, WAR)) +
+  geom_point() +
+  geom_text_repel(
+    data = subset(hofpitching, WAR > quantile(WAR, 0.75) + 1.5 * IQR(WAR) | WAR < quantile(WAR, 0.25) - 1.5 * IQR(WAR)),
+  aes(x = G, y = WAR, label = X),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red") +
+  geom_abline(intercept=coef(linear_model)[1], slope = coef(linear_model)[2], color = "blue")
+```
+
+
+```{r}
+linear_model2 <- lm(WAR ~ SO, data=hofpitching)
+
+ggplot(hofpitching, aes(SO, WAR)) +
+  geom_point() +
+  geom_text_repel(
+    data = subset(hofpitching, WAR > quantile(WAR, 0.75) + 1.5 * IQR(WAR) | WAR < quantile(WAR, 0.25) - 1.5 * IQR(WAR)),
+  aes(x = SO, y = WAR, label = X),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red") +
+  geom_abline(intercept=coef(linear_model2)[1], slope = coef(linear_model2)[2], color = "blue")
+```
+
+Create a variable which shows WAR per season
+```{r}
+hofpitching <- hofpitching %>%
+  mutate(WAR.season = WAR/Yrs)
+```
+Let's graph
+```{r}
+linear_model2 <- lm(WAR.season ~ WAR, data=hofpitching)
+
+ggplot(hofpitching, aes(WAR, WAR.season)) +
+  geom_point() +
+  geom_text_repel(
+    data = subset(hofpitching, WAR.season > quantile(WAR.season, 0.75) + 1.5 * IQR(WAR.season) | WAR.season < quantile(WAR.season, 0.25) - 1.5 * IQR(WAR.season)),
+  aes(x = WAR, y = WAR.season, label = X),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red") +
+  geom_abline(intercept=coef(linear_model2)[1], slope = coef(linear_model2)[2], color = "blue")
+```
+
+```{r}
+ggplot(hofpitching, aes(WAR.season, y=1)) + 
+  geom_jitter(height = 0.6) + ylim(-1,3) +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()) +
+  coord_fixed(ratio = 0.03) +
+  geom_text_repel(
+    data = subset(hofpitching, WAR.season > 7 | WAR.season < 2.5),
+  aes(x = WAR.season, y = 1, label = X),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red") +
+  geom_vline(xintercept=7, color="red") +
+  geom_vline(xintercept=2.5, color = "blue") +
+  coord_cartesian(xlim = c(0,10))
+
+ggplot(hofpitching, aes(WAR.season, BF.group)) + 
+  geom_jitter(height = 0.1) +
+  geom_vline(xintercept=7, color="red") +
+  geom_vline(xintercept=2.5, color = "blue") +
+  coord_cartesian(xlim = c(0,10))
+```
+
+
+```{r}
+ggplot(hofpitching, aes(MidCareer, WAR)) + 
+  geom_point() +
+  geom_smooth() + 
+  ggtitle("WAR by Individual HOF Player MidCareer Season") +
+  geom_text_repel(
+    data = subset(hofpitching, WAR.season < 1.75 & MidCareer <1900) , 
+    aes(x=MidCareer, y=WAR, label=X)
+  )
+```
+```{r}
+hofpitching <- hofpitching %>%
+  arrange(MidCareer)
+
+hofpitching.recent <- hofpitching
+ggplot(hofpitching, aes(MidCareer, WAR.season)) +
+  geom_point() +
+  geom_text_repel(
+    data = subset(hofpitching, WAR.season > 4.2 & MidCareer >1959),
+  aes(x = MidCareer, y = WAR.season, label = X),
+  color = "#000000", 
+  size = 4,
+  nudge_x = 0.2, nudge_y = 0.4,
+  segment.color = "red")
+```
+Exercise 3.6 Working with the Lahman Batting Dataset
+
+1. Read in the Lahman Master and Batting Data Frames (this was already done above)
+2. Collect in a single data frame the season batting statistics for the great hitters ty Cobb, Ted Williams, and Pete Rose
+
+```{r}
+
+#Batting %>%
+#  inner_join(PlayerInfo, by="playerID") %>%
+#  mutate(Age = yearID - birthyear) %>%
+#  select(Player, Age, HR) %>%
+#  group_by(Player)%>%
+#  mutate(CHR = cumsum(HR)) -> HRdata
+
+get_player_id <- function(player_name) {
+  Names <- unlist(strsplit(player_name, " "))
+  Master %>%
+    filter(nameFirst == Names[1],
+           nameLast == Names[2]) %>%
+    mutate(birthyear = ifelse(birthMonth >= 7, 
+                              birthYear+1, birthYear),
+           Player =  paste(nameFirst, nameLast)) %>%
+    select(playerID, Player, birthyear, height, weight, bats, throws, birthCountry, birthState, birthCity)
+}
+
+TedWilliams_PeteRose_TyCobb_Info <- bind_rows(get_player_id("Ted Williams"),
+                                              get_player_id("Pete Rose"),
+                                              get_player_id("Ty Cobb"))
+
+TedWilliams_PeteRose_TyCobb_Info <- TedWilliams_PeteRose_TyCobb_Info %>%
+  filter(playerID != "rosepe02")
+
+Batting_TC_PR_TW <-  Batting %>%
+  inner_join(TedWilliams_PeteRose_TyCobb_Info, by="playerID") %>%
+  mutate(age = yearID - birthyear) %>%
+  group_by(Player) %>%
+  arrange(Player, yearID) %>%
+  mutate(cumH = cumsum(H)) -> Hdata
+  
+Pete_Rose_Lineplot <- ggplot(Hdata, aes(x=age, y=cumH, linetype=Player)) +
+  geom_line(aes(colour=Player)) +
+  theme_minimal()
+
+print(Pete_Rose_Lineplot)
+```
+As you can see from the above graph, Ted Williams' starting accumulating hits after Ty Cobb (around the age 20 season). However, there were large periods of stagnation resulting in him finishing with significantly less hits than Pete Rose and Ty Cobb. The slope of the line however, appears to be similar in his first two periods before stagnation. The eriods of stagnation are seasons Ted did not play, because he was in the war. It may be reasonable to project a similar slope to his line as Pete and Ty, however, we do see a change in the slope of the line in his 30s and beyond. It's tough to project what would have happened had he not been absent from the game. 
+
+Pete Rose and Ty Cobb had similar slopes, meaning they acucmulated hits at a similar rate. However, Ty Cobb achieved 4000 hits before his age 40 season, whereas Pete Rose accumlated 4000 after his age 40 season. However, since the slopes are very similar, we notice that this is largely due to Pete beginning to accumulate hits later in his career (after age 20) than Ty Cobb (stated. before age 20).
+
+
+
+
+
